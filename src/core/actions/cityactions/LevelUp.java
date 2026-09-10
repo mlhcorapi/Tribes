@@ -32,7 +32,8 @@ public class LevelUp extends CityAction {
 
     @Override
     public boolean isFeasible(GameState gs) {
-        City city = (City) gs.getActor(this.cityId);
+        City city = gs.getActor(this.cityId, City.class);
+        if(city == null) return false;
         return city.canLevelUp() && bonus.validType(city.getLevel());
     }
 

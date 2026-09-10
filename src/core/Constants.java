@@ -34,7 +34,9 @@ public class Constants {
 
     //Maximum number of turns to be played and playing settings
     static final int MAX_TURNS = 30;
+    public static final int solo_play_turn_limit =30;
     public static int MAX_TURNS_CAPITALS = 50; //Integer.MAX_VALUE; //Setting a max is useful for experiments
     public static final boolean PLAY_WITH_FULL_OBS = true; //This is for agents
     public static final boolean GUI_FORCE_FULL_OBS = true; //This is for display
+    public static boolean REMOVE_FISHING = false;
 }

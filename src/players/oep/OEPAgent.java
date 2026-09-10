@@ -2,6 +2,7 @@ package players.oep;
 
 import core.Types;
 import core.actions.Action;
+import core.actions.tribeactions.EndTurn;
 import core.actions.cityactions.CityAction;
 import core.actions.unitactions.UnitAction;
 import core.actors.Actor;
@@ -11,13 +12,16 @@ import core.game.GameState;
 import players.Agent;
 import players.heuristics.StateHeuristic;
 import utils.ElapsedCpuTimer;
+import core.data.dto.TurnData;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Collections;
 import java.util.Random;
 
 
 public class OEPAgent extends Agent {
 
+    private List<TurnData> turnDataLog = new ArrayList<>();
     private Random m_rnd;
     private StateHeuristic heuristic;
     private OEPParams params;
@@ -26,6 +30,17 @@ public class OEPAgent extends Agent {
     private int fmCallsCount;
     private int fmCallsRun;
     private GameState root;
+    // Per-turn telemetry captured on the first act() of the turn (engine calls act()
+    // once per action; a tick change marks a new turn).
+    private int turnStartTick = -1;
+    private int turnStartScore = 0;
+    private double turnPlanValue = 0.0;
+    // Turn-level telemetry accumulated across the turn's act() calls (OEP re-evolves per action;
+    // fmCallsCount is reset each act(), so it is accumulated into turnFmCalls).
+    private int turnFmCalls = 0;
+    private int turnNodesEvaluated = 0;
+    private double turnSumNodeValue = 0.0;
+    private final java.util.HashSet<String> turnUniqueSeqKeys = new java.util.HashSet<>();
 
 
     public OEPAgent(long seed, OEPParams params) {
@@ -35,7 +50,29 @@ public class OEPAgent extends Agent {
     }
 
     @Override
+    public List<TurnData> getTurnDataLog() {
+        return turnDataLog;
+    }
+
+    @Override
+    public int getNodesVisited() {
+        return -1;
+    }
+
+    @Override
     public Action act(GameState gs, ElapsedCpuTimer ect) {
+        // First act() of a new turn? Capture the turn-start score.
+        boolean firstActOfTurn = (gs.getTick() != turnStartTick);
+        if (firstActOfTurn) {
+            turnStartTick = gs.getTick();
+            turnStartScore = gs.getScore(playerID);
+            turnFmCalls = 0;
+            turnNodesEvaluated = 0;
+            turnSumNodeValue = 0.0;
+            turnUniqueSeqKeys.clear();
+        }
+
+        double initialSequenceValue = 0.0;
         double avgTimeTaken;
         double acumTimeTaken = 0;
         long remaining;
@@ -58,6 +95,16 @@ public class OEPAgent extends Agent {
         this.bestIndividual = null;
         this.root = gs.copy();
 
+        // rate each individual and sort them
+        for(Individual individual : population){
+            individual.setValue(eval( individual));
+        }
+        Collections.sort(population, Collections.reverseOrder());
+        this.bestIndividual = population.get(population.size() - 1);
+        initialSequenceValue = this.bestIndividual.getValue();
+
+        boolean firstIteration = true;
+
         //keep going until time limit gone
         while(!stop){
 
@@ -65,12 +112,15 @@ public class OEPAgent extends Agent {
             ElapsedCpuTimer elapsedTimerIteration = new ElapsedCpuTimer();
             fmCallsRun = 0;
 
-            // rate each individual and sort them
-            for(Individual individual : population){
-                individual.setValue(eval( individual));
+            if (!firstIteration) {
+                // rate each individual and sort them
+                for(Individual individual : population){
+                    individual.setValue(eval( individual));
+                }
+                Collections.sort(population, Collections.reverseOrder());
+                this.bestIndividual = population.get(population.size() - 1);
             }
-            Collections.sort(population, Collections.reverseOrder());
-            this.bestIndividual = population.get(population.size() - 1);
+            firstIteration = false;
 
             //Kill the amount of the population that needs to die
             int amount =  (int)(population.size() * params.KILL_RATE);
@@ -120,7 +170,44 @@ public class OEPAgent extends Agent {
 
         }
         //System.out.println(numIters);
-        return  bestIndividual.returnNext();
+        turnFmCalls += fmCallsCount; // this act()'s forward-model calls (fmCallsCount is reset each act())
+
+        Action bestAction = null;
+        double finalSequenceValue = 0.0;
+        int nodesVisited = -1; // Explicit requirement
+
+        if (this.bestIndividual != null) {
+            bestAction = this.bestIndividual.returnNext();
+            finalSequenceValue = this.bestIndividual.getValue();
+        } else {
+            finalSequenceValue = 0.0;
+            nodesVisited = 0;
+        }
+
+        // The "sequence OEP uses on its turn" is the plan it evolves on the first act();
+        // remember its value so the per-turn row reports it (not a later re-plan).
+        if (firstActOfTurn) {
+            turnPlanValue = finalSequenceValue;
+        }
+
+        if (bestAction == null) {
+            ArrayList<Action> allAvailableActions = this.allGoodActions(gs, m_rnd);
+            if (!allAvailableActions.isEmpty()) {
+                bestAction = allAvailableActions.get(m_rnd.nextInt(allAvailableActions.size()));
+            } else {
+                bestAction = new core.actions.tribeactions.EndTurn(gs.getActiveTribeID());
+            }
+        }
+
+        // Initial sequence value is not meaningful for OEP (pre-evolution random pop),
+        // so it is logged as 0.0; Final = the value of the turn plan OEP commits to.
+        if (bestAction instanceof core.actions.tribeactions.EndTurn || bestAction.getActionType() == core.Types.ACTION.END_TURN) {
+            double avgNodeValue = turnNodesEvaluated > 0 ? turnSumNodeValue / turnNodesEvaluated : 0.0;
+            turnDataLog.add(new TurnData(-1, gs.getTick(), turnStartScore, 0.0, turnPlanValue, avgNodeValue,
+                    turnFmCalls, turnNodesEvaluated, turnUniqueSeqKeys.size()));
+        }
+
+        return bestAction;
 
 
     }
@@ -130,30 +217,45 @@ public class OEPAgent extends Agent {
         return null;
     }
 
+    private Action getRandomAction(GameState gs){
+        ArrayList<Action> allAvailableActions = this.allGoodActions(gs, m_rnd);
+        if(allAvailableActions.isEmpty()) {
+            for(Action a : gs.getTribeActions()){
+                if(a.getActionType() == Types.ACTION.END_TURN) return a;
+            }
+            return null;
+        }
+        return allAvailableActions.get(m_rnd.nextInt(allAvailableActions.size()));
+    }
+
+    private Action getEndTurnAction(GameState gs){
+        for(Action a : gs.getTribeActions()){
+            if(a.getActionType() == Types.ACTION.END_TURN) return a;
+        }
+        return null;
+    }
+
     private Individual randomActions(GameState gs){
         ArrayList<Action> individual = new ArrayList<>();
         while ((!gs.isGameOver() && (gs.getActiveTribeID() == getPlayerID())) && (individual.size() < (params.NODE_SIZE-1))){
-            ArrayList<Action> allAvailableActions = this.allGoodActions(gs, m_rnd);
-            Action a = allAvailableActions.get(m_rnd.nextInt(allAvailableActions.size()));
+            Action a = getRandomAction(gs);
+            if(a == null) break;
             if(!(a.getActionType() == Types.ACTION.END_TURN)){
                 advance(gs, a);
                 individual.add(a);
-            }else if(allAvailableActions.size() == 1){
+            }else if(gs.getAllAvailableActions().size() == 1){
                 advance(gs, a);
                 individual.add(a);
+            } else {
+                break;
             }
         }
         //if one less then max node size
         if(individual.size() == (params.NODE_SIZE-1) && (individual.get((params.NODE_SIZE-2)).getActionType() != Types.ACTION.END_TURN)){
-            ArrayList<Action> allAvailableActions = this.allGoodActions(gs, m_rnd);
-            Action end = null; ;
-            for(Action a : allAvailableActions){
-                if(a.getActionType() == Types.ACTION.END_TURN){
-                    end = a;
-                    break;
-                }
+            Action end = getEndTurnAction(gs);
+            if(end != null){
+                individual.add(end);
             }
-            individual.add(end);
         }
 
         Individual in = new Individual(individual);
@@ -190,17 +292,22 @@ public class OEPAgent extends Agent {
             Collections.sort(pop);
             return new Individual[]{pop.get(0), pop.get(1)};
         }
+        // Sample TOURNAMENT_SIZE distinct individuals. BOUNDED: if the population has converged to fewer
+        // than TOURNAMENT_SIZE distinct individuals (common with a large population on a small early-game
+        // action space), insisting on distinctness would spin forever - so after enough failed attempts we
+        // allow duplicates. In the normal case (>= TOURNAMENT_SIZE distinct) this fills in the first few
+        // tries and behaves exactly as before.
         ArrayList<Individual> tournament1  =  new ArrayList<>();
-        while(tournament1.size() < params.TOURNAMENT_SIZE){
+        for(int tries = 0; tournament1.size() < params.TOURNAMENT_SIZE; tries++){
             Individual temp = pop.get(m_rnd.nextInt(pop.size()));
-            if(!(tournament1.contains(temp))){tournament1.add(temp);}
+            if(!(tournament1.contains(temp)) || tries >= 10 * params.TOURNAMENT_SIZE){tournament1.add(temp);}
         }
         Collections.sort(tournament1);
 
         ArrayList<Individual> tournament2  =  new ArrayList<>();
-        while(tournament2.size() < params.TOURNAMENT_SIZE){
+        for(int tries = 0; tournament2.size() < params.TOURNAMENT_SIZE; tries++){
             Individual temp = pop.get(m_rnd.nextInt(pop.size()));
-            if(!(tournament2.contains(temp))){tournament2.add(temp);}
+            if(!(tournament2.contains(temp)) || tries >= 10 * params.TOURNAMENT_SIZE){tournament2.add(temp);}
         }
         Collections.sort(tournament2);
 
@@ -317,8 +424,7 @@ public class OEPAgent extends Agent {
 
     //give a random possible move as a mutation
     private Action mutation(GameState gs){
-        ArrayList<Action> allAvailableActions = this.allGoodActions(gs, m_rnd);
-        return  allAvailableActions.get(m_rnd.nextInt(allAvailableActions.size()));
+        return getRandomAction(gs);
     }
 
     private ArrayList<Individual> shiftPop(GameState gs, ArrayList<Individual> population){
@@ -359,8 +465,8 @@ public class OEPAgent extends Agent {
         int i = j;
         while((!gs.isGameOver() && (gs.getActiveTribeID() == getPlayerID())) && i < params.NODE_SIZE)
         {
-            ArrayList<Action> allAvailableActions = this.allGoodActions(gs.copy(), m_rnd);
-            Action ac = allAvailableActions.get(m_rnd.nextInt(allAvailableActions.size()));
+            Action ac = getRandomAction(gs.copy());
+            if(ac == null) break;
             individual.getActions().add(ac);
             advance(gs, ac);
             i++;
@@ -384,6 +490,7 @@ public class OEPAgent extends Agent {
             int chance = m_rnd.nextInt((int) (params.MUTATION_RATE * 100));
             if ((m_rnd.nextInt(100) < chance) ) {
                 Action ac = mutation(gs.copy());
+                if(ac == null) break;
                 advance(gs, ac);
                 child.add(ac);
             }else{
@@ -392,8 +499,8 @@ public class OEPAgent extends Agent {
                     child.add(individual.getActions().get(a));
                 }
                 else{
-                    ArrayList<Action> allAvailableActions = this.allGoodActions(gs.copy(), m_rnd);
-                    Action ac = allAvailableActions.get(m_rnd.nextInt(allAvailableActions.size()));
+                    Action ac = getRandomAction(gs.copy());
+                    if(ac == null) break;
                     advance(gs,ac);
                     child.add(ac);
                 }
@@ -407,8 +514,21 @@ public class OEPAgent extends Agent {
 
     public double eval( Individual actionSet){
         GameState gs = actionSet.getGs();
-        return heuristic.evaluateState(this.root.copy(),gs.copy());
-        //return heuristic.evaluateState(gs.copy());
+        double v = heuristic.evaluateState(this.root, gs);
+        // Telemetry: each eval() scores one individual. Count it (duplicates included), accumulate its
+        // value (for the per-turn mean), and record its sequence key (distinct-sequence count).
+        turnNodesEvaluated++;
+        turnSumNodeValue += v;
+        turnUniqueSeqKeys.add(seqKey(actionSet.getActions()));
+        return v;
+    }
+
+    /** Canonical key for an action sequence (de-duplication), composed from each action's content toString(). */
+    private String seqKey(ArrayList<Action> seq) {
+        if (seq == null) return "";
+        StringBuilder sb = new StringBuilder();
+        for (Action a : seq) sb.append(a == null ? "_" : a.toString()).append('|');
+        return sb.toString();
     }
 
     private boolean checkActionFeasibility(Action a, GameState gs)

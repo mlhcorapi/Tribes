@@ -25,6 +25,8 @@ class SingleTreeNode
     private int fmCallsCount;
     private int playerID;
 
+    public int m_numNodes = 1;
+
     private ArrayList<Action> actions;
     private GameState state;
 
@@ -56,6 +58,21 @@ class SingleTreeNode
             m_depth = 0;
         }
 
+    }
+
+    public int getNumNodes() {
+        if (this.root != null && this.root != this) {
+            return this.root.m_numNodes;
+        }
+        return m_numNodes;
+    }
+
+    /** Forward-model advance() calls made during this search (tracked on the root, see advance()). */
+    public int getNumFmCalls() {
+        if (this.root != null && this.root != this) {
+            return this.root.fmCallsCount;
+        }
+        return fmCallsCount;
     }
 
     void setRootGameState(SingleTreeNode root, GameState gs, ArrayList<Integer> allIDs)
@@ -163,6 +180,11 @@ class SingleTreeNode
         SingleTreeNode tn = new SingleTreeNode(params, this, this.m_rnd, nextActions.size(),
                 null, rootStateHeuristic, this.playerID, this.m_depth == 0 ? this : this.root, nextState);
         children[bestAction] = tn;
+        if (this.root != null) {
+            this.root.m_numNodes++;
+        } else {
+            this.m_numNodes++;
+        }
         return tn;
     }
 

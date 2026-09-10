@@ -26,7 +26,8 @@ public class Spawn extends CityAction
     @Override
     public boolean isFeasible(GameState gs) {
 
-        City city = (City) gs.getActor(this.cityId);
+        City city = gs.getActor(this.cityId, City.class);
+        if(city == null) return false;
         Tribe t = gs.getTribe(city.getTribeId());
 
         //It's a buildable type (no naval units, no giants)

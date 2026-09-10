@@ -2,10 +2,12 @@ package core.game;
 
 import core.Types;
 
+import java.io.Serializable;
 import java.util.Random;
 
-public class TribeResult implements Comparable
+public class TribeResult implements Comparable, Serializable
 {
+    private static final long serialVersionUID = 1L;
     private Types.RESULT result;
     private int id;
     private int score;
@@ -81,8 +83,11 @@ public class TribeResult implements Comparable
         else if(this.numStars < other.numStars)
             return 1;
 
-        //If here, all is the same. Choose at random.
-        return new Random().nextBoolean() ? -1 : 1;
+        // All scoring fields equal — final tie-break by tribe id so the order is TOTAL and STABLE.
+        // (Previously: new Random().nextBoolean() — that broke determinism across save/load of the
+        // ranking TreeSet, because TreeSet rebuilds via compareTo on deserialization and a freshly-
+        // seeded Random would shuffle tied tribes differently than the original in-memory set.)
+        return Integer.compare(this.id, other.id);
     }
 
     public int getId() {

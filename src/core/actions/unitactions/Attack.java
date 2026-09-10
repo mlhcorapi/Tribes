@@ -24,11 +24,11 @@ public class Attack extends UnitAction
     @Override
     public boolean isFeasible(final GameState gs)
     {
-        Unit target = (Unit) gs.getActor(this.targetId);
-        Unit attacker = (Unit) gs.getActor(this.unitId);
+        Unit target = gs.getActor(this.targetId, Unit.class);
+        Unit attacker = gs.getActor(this.unitId, Unit.class);
 
-        // Check if target is not null and that it can attack
-        if(target == null || !attacker.canAttack() || attacker.getType() == Types.UNIT.MIND_BENDER)
+        // Check both units still exist and that the attacker can attack
+        if(target == null || attacker == null || !attacker.canAttack() || attacker.getType() == Types.UNIT.MIND_BENDER)
             return false;
 
         return unitInRange(attacker, target, gs.getBoard());

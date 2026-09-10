@@ -11,6 +11,7 @@ import players.HumanAgent;
 import javax.swing.*;
 import java.awt.*;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 
 import static core.Constants.*;
@@ -26,10 +27,27 @@ public class TechView extends JComponent {
     InfoView infoView;
     Game game;
 
+    // --- Tech-purchase flash highlighting ---
+    // Number of timer frames a newly researched tech (and the banner) stays highlighted.
+    private static final int FLASH_FRAMES = 24;
+    private JScrollPane scrollPane;
+    private JLabel flashBanner;
+    // Per-tribe set of technologies we have already seen researched, so we only flash brand new ones.
+    private final HashMap<Integer, HashSet<Types.TECHNOLOGY>> knownTechs = new HashMap<>();
+    // Remaining flash frames per technology index (parallel to techs[]).
+    private int[] flashRemaining;
+    private int bannerRemaining = 0;
+    private javax.swing.Timer flashTimer;
+
+    /** Notified when the active tribe researches a new technology (used to show a banner elsewhere). */
+    public interface ResearchListener { void onResearch(String tribeName, String techName); }
+    private ResearchListener researchListener;
+    public void setResearchListener(ResearchListener l) { this.researchListener = l; }
+
     // TODO: search functionality (i.e. "custom house -> Trade research")
     TechView(Game game, ActionController ac, InfoView infoView)
     {
-        this.setLayout(new FlowLayout());
+        this.setLayout(new BorderLayout());
         this.infoView = infoView;
         this.game = game;
 
@@ -61,6 +79,8 @@ public class TechView extends JComponent {
                 leaves.add(technologies[i]);
             }
         }
+
+        flashRemaining = new int[nTechs];
 
         techs = new JButton[nTechs];
         for (int i = 0; i < nTechs; i++) {
@@ -110,9 +130,47 @@ public class TechView extends JComponent {
             buttons.add(techs[i], gbc);
         }
 
-        JScrollPane scrollPane = new JScrollPane(buttons);
+        // Banner at the top that announces a tech purchase (flashes gold for a moment).
+        flashBanner = new JLabel(" ", SwingConstants.CENTER);
+        flashBanner.setFont(flashBanner.getFont().deriveFont(Font.BOLD, 15f));
+        flashBanner.setForeground(new Color(255, 215, 0));
+        flashBanner.setOpaque(false);
+
+        scrollPane = new JScrollPane(buttons);
         scrollPane.setPreferredSize(size);
-        this.add(scrollPane);
+        this.add(flashBanner, BorderLayout.NORTH);
+        this.add(scrollPane, BorderLayout.CENTER);
+
+        // Timer that animates the flash. It runs only while something is flashing, then stops.
+        flashTimer = new javax.swing.Timer(60, e -> {
+            boolean any = false;
+            for (int i = 0; i < flashRemaining.length; i++) {
+                if (flashRemaining[i] > 0) {
+                    flashRemaining[i]--;
+                    any = true;
+                }
+            }
+            if (bannerRemaining > 0) {
+                bannerRemaining--;
+                if (bannerRemaining == 0) {
+                    flashBanner.setText(" ");
+                    flashBanner.setOpaque(false);
+                }
+                any = true;
+            }
+            repaint();  // re-runs paintWithGraphics, which recolors the (still) flashing buttons
+            if (!any) flashTimer.stop();
+        });
+        flashTimer.setRepeats(true);
+    }
+
+    /**
+     * Resizes the scrollable tech-tree view (used by the followable demo GUI to give it more room).
+     */
+    public void setViewSize(Dimension d) {
+        this.size = d;
+        if (scrollPane != null) scrollPane.setPreferredSize(d);
+        revalidate();
     }
 
 
@@ -124,6 +182,8 @@ public class TechView extends JComponent {
 
     private void paintWithGraphics(Graphics2D g)
     {
+        if (gs == null) return;
+
         //For a better graphics, enable this: (be aware this could bring performance issues depending on your HW & OS).
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
@@ -131,6 +191,16 @@ public class TechView extends JComponent {
         if (t != null) {
             TechnologyTree tt = t.getTechTree();
             if (tt != null) {
+                // Track which techs this tribe has already researched so we only flash *new* purchases.
+                // The first time we see a tribe we seed its baseline silently (no flash).
+                int tribeId = gs.getActiveTribeID();
+                HashSet<Types.TECHNOLOGY> known = knownTechs.get(tribeId);
+                boolean firstSeen = (known == null);
+                if (firstSeen) {
+                    known = new HashSet<>();
+                    knownTechs.put(tribeId, known);
+                }
+
                 for (int i = 0; i < Types.TECHNOLOGY.values().length; i++) {
                     Types.TECHNOLOGY opt = Types.TECHNOLOGY.values()[i];
                     boolean researched = tt.isResearched(opt);
@@ -139,7 +209,31 @@ public class TechView extends JComponent {
                     boolean starRequirement = t.getStars() >= starCost;
                     boolean researchable = techRequirement && starRequirement;
 
-                    if (!(researchable || researched)) {
+                    // Detect a brand-new research and trigger its flash.
+                    if (researched && !known.contains(opt)) {
+                        known.add(opt);
+                        if (!firstSeen) {
+                            flashRemaining[i] = FLASH_FRAMES;
+                            if (!flashTimer.isRunning()) flashTimer.start();
+                            if (researchListener != null) {
+                                // Followable mode shows the message elsewhere (above the scores).
+                                researchListener.onResearch(t.getName(), opt.toString());
+                            } else {
+                                bannerRemaining = FLASH_FRAMES;
+                                flashBanner.setText("★  " + t.getName() + " researched " + opt.toString() + "  ★");
+                                flashBanner.setOpaque(true);
+                                flashBanner.setBackground(new Color(40, 40, 40));
+                            }
+                        }
+                    }
+
+                    if (flashRemaining[i] > 0) {
+                        // Pulsing gold highlight to draw attention to the new tech.
+                        boolean bright = ((flashRemaining[i] / 3) % 2) == 0;
+                        techs[i].setBackground(bright ? new Color(255, 215, 0) : new Color(255, 140, 0));
+                        techs[i].setForeground(Color.BLACK);
+                        techs[i].setFont(new Font(getFont().getName(), Font.BOLD, getFont().getSize() + 1));
+                    } else if (!(researchable || researched)) {
                         techs[i].setBackground(Color.DARK_GRAY);
                         techs[i].setForeground(new Color(176, 183, 181));
                         techs[i].setFont(new Font(getFont().getName(), Font.PLAIN, getFont().getSize()));
@@ -173,7 +267,7 @@ public class TechView extends JComponent {
      * @return the dimensions of the window.
      */
     public Dimension getPreferredSize() {
-        return size;
+        return new Dimension(size.width, size.height + 28);  // +28 for the flash banner row
     }
 
     static class TechnologyNode {

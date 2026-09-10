@@ -14,11 +14,13 @@ import org.json.JSONObject;
 import utils.Vector2d;
 import utils.graph.*;
 
+import java.io.Serializable;
 import java.util.*;
 
 import static core.Types.TERRAIN.*;
 
-public class Board {
+public class Board implements Serializable {
+    private static final long serialVersionUID = 1L;
 
     // Array for the type of terrain that each tile of board will have
     private Types.TERRAIN[][] terrains;
@@ -909,6 +911,20 @@ public class Board {
     public Actor getActor(int actorId)
     {
         return gameActors.get(actorId);
+    }
+
+    /**
+     * Gets a game actor from its id, but only if it is of the kind the caller expects. See
+     * {@link core.game.GameState#getActor(int, Class)} for why an id carried by an Action cannot be
+     * assumed to resolve to an actor of the expected kind.
+     * @param actorId the id of the actor to retrieve
+     * @param type the kind of actor the caller requires
+     * @return the actor, or null if no actor has this id or it is not of the requested kind.
+     */
+    public <T extends Actor> T getActor(int actorId, Class<T> type)
+    {
+        Actor actor = gameActors.get(actorId);
+        return type.isInstance(actor) ? type.cast(actor) : null;
     }
 
     /**

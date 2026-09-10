@@ -4,7 +4,10 @@ import core.Types;
 import org.json.JSONObject;
 import utils.Vector2d;
 
-public class Building {
+import java.io.Serializable;
+
+public class Building implements Serializable {
+    private static final long serialVersionUID = 1L;
 
     //Position of this building
     public Vector2d position;

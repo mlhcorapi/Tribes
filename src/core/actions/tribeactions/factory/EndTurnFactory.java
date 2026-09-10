@@ -16,7 +16,7 @@ public class EndTurnFactory implements ActionFactory {
         Tribe tribe = (Tribe) actor;
         LinkedList<Action> endTurns = new LinkedList<>();
         if(gs.canEndTurn(tribe.getTribeId()))
-            endTurns.add(new EndTurn(tribe.getActorId()));
+            endTurns.add(new EndTurn(tribe.getTribeId()));
         return endTurns;
     }
 

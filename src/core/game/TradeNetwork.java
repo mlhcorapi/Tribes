@@ -9,13 +9,15 @@ import utils.graph.NeighbourHelper;
 import utils.graph.PathNode;
 import utils.graph.Pathfinder;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
 
 import static core.Types.TERRAIN.*;
 
-class TradeNetwork
+class TradeNetwork implements Serializable
 {
+    private static final long serialVersionUID = 1L;
 
     // Array that indicates presence of roads, cities, ports or naval links
     private boolean[][] networkTiles;

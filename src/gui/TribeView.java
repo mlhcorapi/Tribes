@@ -54,7 +54,11 @@ public class TribeView extends JComponent {
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             Tribe[] tribes = gs.getTribes().clone();
 
-            Tribe t_this = tribes[gs.getActiveTribeID()];
+            // Before the first turn begins (e.g. while the followable demo waits for Start) there is
+            // no active tribe yet (id == -1); fall back to the first tribe so the scores still render.
+            int activeId = gs.getActiveTribeID();
+            if (activeId < 0 || activeId >= tribes.length) activeId = 0;
+            Tribe t_this = tribes[activeId];
             StringBuilder s = new StringBuilder("<p><b>" + t_this.getName() + "</b>  ...........  " + t_this.getScore() + " points. Stars: "
                     + t_this.getStars() + " (+" + t_this.getMaxProduction(gs) + ")</p><br/><hr><h2>Rankings</h2>");
             Agent[] agents = game.getPlayers();
@@ -93,6 +97,13 @@ public class TribeView extends JComponent {
      */
     public Dimension getPreferredSize() {
         return size;
+    }
+
+    /** Resizes the scores view (used by the followable demo GUI to give it a fixed area). */
+    public void setViewSize(Dimension d) {
+        this.size = d;
+        if (textArea != null) textArea.setPreferredSize(d);
+        revalidate();
     }
 
 }

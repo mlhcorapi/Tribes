@@ -18,11 +18,12 @@ public class BuildCommand implements ActionCommand {
     public boolean execute(Action a, GameState gs) {
         Build action = (Build)a;
         int cityId = action.getCityId();
-        City city = (City) gs.getActor(cityId);
-        Tribe tribe = gs.getTribe(city.getTribeId());
-        Board board = gs.getBoard();
 
         if(action.isFeasible(gs)) {
+            //isFeasible has established that cityId resolves to a City in this state.
+            City city = gs.getActor(cityId, City.class);
+            Tribe tribe = gs.getTribe(city.getTribeId());
+            Board board = gs.getBoard();
             Vector2d targetPos = action.getTargetPos();
             Types.BUILDING buildingType = action.getBuildingType();
 

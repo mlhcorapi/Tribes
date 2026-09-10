@@ -108,7 +108,9 @@ public class Types {
         QUETZALI(10, "Quetzali", SHIELDS, DEFENDER,
                 new Color(39, 92, 74), new Color(79, 165, 136), new Color(20, 51, 41)),
         YADAKK(11, "Yadakk", ROADS, WARRIOR,
-                new Color(125, 38, 28), new Color(177, 70, 57), new Color(92, 33, 13));
+                new Color(125, 38, 28), new Color(177, 70, 57), new Color(92, 33, 13)),
+        IMPERIUS2(12, "Imperius2", ORGANIZATION, WARRIOR,
+                new Color(251, 2, 7), new Color(253, 130, 123), new Color(174, 66, 48));
 
         private int key;
         private String name;

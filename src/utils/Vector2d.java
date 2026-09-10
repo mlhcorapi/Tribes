@@ -1,5 +1,6 @@
 package utils;
 
+import java.io.Serializable;
 import java.util.LinkedList;
 
 /**
@@ -8,8 +9,9 @@ import java.util.LinkedList;
  * Created by Diego Perez, University of Essex.
  * Date: 19/12/11
  */
-public class Vector2d
+public class Vector2d implements Serializable
 {
+    private static final long serialVersionUID = 1L;
     /**
      * X-coordinate of the vector.
      */

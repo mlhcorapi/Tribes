@@ -16,9 +16,13 @@ import core.levelgen.LevelGenerator;
 import utils.file.IO;
 import utils.Vector2d;
 
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.Serializable;
 import java.util.*;
 
-public class GameState {
+public class GameState implements Serializable {
+    private static final long serialVersionUID = 1L;
 
     //Game mode
     private Types.GAME_MODE gameMode;
@@ -35,10 +39,12 @@ public class GameState {
     //Indicates if this tribe can end its turn.
     private boolean[] canEndTurn;
 
-    //Actions per city, unit and tribe. These are computed when computePlayerActions() is called
-    private HashMap<Integer, ArrayList<Action>> cityActions;
-    private HashMap<Integer, ArrayList<Action>> unitActions;
-    private ArrayList<Action> tribeActions;
+    //Actions per city, unit and tribe. These are computed when computePlayerActions() is called.
+    //TRANSIENT: not serialized — re-derived via computePlayerActions() on load (same pattern as the
+    //existing GameLoader path) so the 30+ Action subclasses don't need to implement Serializable.
+    private transient HashMap<Integer, ArrayList<Action>> cityActions;
+    private transient HashMap<Integer, ArrayList<Action>> unitActions;
+    private transient ArrayList<Action> tribeActions;
 
     //Flags the state to indicate that the turn must end
     private boolean turnMustEnd;
@@ -97,7 +103,7 @@ public class GameState {
     void init(long levelgen_seed, Types.TRIBE[] tribes) {
 
         LevelGenerator levelGen = new LevelGenerator(levelgen_seed);
-        levelGen.init(TribesConfig.DEFAULT_MAP_SIZE[tribes.length-1], 3, 4, 0.5, tribes);
+        levelGen.init(TribesConfig.DEFAULT_MAP_SIZE[tribes.length-1], 3, 4, 0.5, tribes, false);
         levelGen.generate();
         String[] lines = levelGen.gelLevelLines();
         initGameState(lines);
@@ -142,6 +148,29 @@ public class GameState {
     public Actor getActor(int actorId)
     {
         return board.getActor(actorId);
+    }
+
+    /**
+     * Gets a game actor from its id, but only if it is of the kind the caller expects.
+     *
+     * Actor ids come from a single per-board counter shared by units and cities, and some
+     * ActionCommands (Examine, LevelUp) draw on this state's Random to decide whether they create
+     * an actor at all. {@link GameState#copy()} re-seeds that Random, so replaying one action
+     * sequence on two copies of the same state can hand the same id to actors of different kinds.
+     * An id stored inside an Action is therefore only meaningful in the state that action was built
+     * from: anywhere else it may resolve to nothing, or to an actor of another kind.
+     *
+     * Code that resolves an id carried by an Action must use this rather than casting the result of
+     * {@link #getActor(int)}, and treat null as "this action does not apply to this state".
+     *
+     * @param actorId the id of the actor to retrieve
+     * @param type the kind of actor the caller requires
+     * @return the actor, or null if no actor has this id or it is not of the requested kind.
+     */
+    public <T extends Actor> T getActor(int actorId, Class<T> type)
+    {
+        Actor actor = board.getActor(actorId);
+        return type.isInstance(actor) ? type.cast(actor) : null;
     }
 
     /**
@@ -290,8 +319,6 @@ public class GameState {
                 executed = ac.execute(action, this);
 
             if(!executed && ac != null) {
-                System.out.println("Tick: " + this.tick + "; action [" + action + "] couldn't execute?");
-                ac.execute(action, this);
             }
 
             //Post-action execution matters:
@@ -310,6 +337,25 @@ public class GameState {
      */
     public void advance(Action action, boolean computeActions)
     {
+        ComputeMeter.onAdvance();
+        // Timing an advance is opt-in (ComputeCalibrateV6 turns PROFILE on for a few thousand turns on
+        // an idle machine) because the nanoTime pair is a real cost in the innermost loop of the search.
+        // It lives HERE, next to the count, rather than in an agent's forward-model wrapper: an advance
+        // has to be timed identically for every agent, or a per-agent weight calibration would be
+        // measuring the wrapper as much as the operation. ExperimentalEMCTSAgent.FM_NANOS still exists
+        // for FmComputeProbe, but it is a process-wide static that only that agent family maintains.
+        if (ComputeMeter.PROFILE) {
+            long __t0 = System.nanoTime();
+            advanceInternal(action, computeActions);
+            ComputeMeter.addAdvanceNanos(System.nanoTime() - __t0);
+            return;
+        }
+        advanceInternal(action, computeActions);
+    }
+
+    /** The advance itself. Split out only so {@link #advance} can time it without re-indenting. */
+    private void advanceInternal(Action action, boolean computeActions)
+    {
         if(action != null)
         {
             boolean executed = false;
@@ -318,8 +364,6 @@ public class GameState {
                 executed = ac.execute(action, this);
 
             if(!executed && ac != null) {
-                System.out.println("FM: Action [" + action + "] couldn't execute?");
-                ac.execute(action, this);
                 //return false;
             }
 
@@ -345,9 +389,14 @@ public class GameState {
                                 playerFound = true;
 
                             if(curActiveTribeId == board.getActiveTribeID()) {
+                                if (canEndTurn.length == 1) {
+                                    // It's a single player game, so this is normal. Just advance the turn.
+                                    break;
+                                }
                                 System.out.println("ForwardModel ERROR: this shouldn't happen (all players but " +
                                         board.getActiveTribeID() + " lost, but it's not game over?)");
                                 gameOver();
+                                break;
                             }
                         }
 
@@ -508,10 +557,41 @@ public class GameState {
 
 
     /**
+     * Custom deserialization hook. The {@code cityActions}/{@code unitActions}/{@code tribeActions}
+     * caches are marked {@code transient} (so the 30+ {@link core.actions.Action} subclasses don't need
+     * to implement {@link Serializable}); on load we recreate the empty containers and recompute the
+     * action lists for the active tribe — mirroring the existing post-load behaviour of
+     * {@link GameState#GameState(Random, Types.GAME_MODE, core.actors.Tribe[], Board, int)}.
+     */
+    private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+        in.defaultReadObject();
+        this.cityActions = new HashMap<>();
+        this.unitActions = new HashMap<>();
+        this.tribeActions = new ArrayList<>();
+        this.computedActionTribeIdFlag = -1;
+        if (board == null || board.getTribes() == null) {
+            throw new IOException("deserialized GameState has null board/tribes — corrupted .bin?");
+        }
+        int aid = board.getActiveTribeID();
+        if (aid < 0 || aid >= board.getTribes().length) {
+            throw new IOException("deserialized GameState has invalid activeTribeID=" + aid
+                    + " (tribes.length=" + board.getTribes().length + ")");
+        }
+        computePlayerActions(board.getTribes()[aid]);
+    }
+
+    /**
      * Public accessor to the copy() functionality of this state.
      * @return a copy of the current game state.
      */
     public GameState copy() {
+        ComputeMeter.onCopy();
+        if (ComputeMeter.PROFILE) {
+            long __t0 = System.nanoTime();
+            GameState __r = copy(-1);
+            ComputeMeter.addCopyNanos(System.nanoTime() - __t0);
+            return __r;
+        }
         return copy(-1);  // No reduction happening if no index specified
     }
 
@@ -524,7 +604,14 @@ public class GameState {
     GameState copy(int playerIdx)
     {
 //        GameState copy = new GameState(this.rnd, this.gameMode); //use this for a 100% repetition of the game based on random seed and game seed.
-        GameState copy = new GameState(new Random(), this.gameMode); //copies of the game state can't have the same random generator.
+        // Deterministic-cascade: the child rnd is independent of the parent's (same separation goal as
+        // before — the parent's randomness is not shared) but its SEED is derived from the parent rather
+        // than from System.currentTimeMillis() via no-arg Random(). This makes a fully-seeded GameState
+        // reproducible through any depth of copy chain — required for the v4 isolation-phase paired
+        // guarantee (otherwise gs.rnd-consuming ActionCommands like Examine and LevelUp(EXPLORER) diverge
+        // across agents on the same visit seed). Behaviour for code paths that don't seed the root rnd is
+        // unaffected: System.nanoTime-derived parent → still non-reproducible child.
+        GameState copy = new GameState(new Random(this.rnd.nextLong()), this.gameMode);
         copy.board = board.copy(playerIdx!=-1, playerIdx);
         copy.tick = this.tick;
         copy.turnMustEnd = turnMustEnd;
@@ -613,14 +700,22 @@ public class GameState {
         computeGameRanking();
 
         if(gameMode == Types.GAME_MODE.SCORE) {
-            int numNonLoss = 0;
-            for (TribeResult tr : ranking) {
-                int tribeId = tr.getId();
-                Types.RESULT res = getTribe(tribeId).getWinner();
-                if (res != Types.RESULT.LOSS)
-                    numNonLoss++;
+            if (ranking.size() == 1) {
+                TribeResult tr = ranking.first();
+                if (tr.getScore() >= 10000 || tick > core.Constants.solo_play_turn_limit) {
+                    isEnded = true;
+                    board.getTribe(tr.getId()).setWinner(Types.RESULT.WIN);
+                }
+            } else {
+                int numNonLoss = 0;
+                for (TribeResult tr : ranking) {
+                    int tribeId = tr.getId();
+                    Types.RESULT res = getTribe(tribeId).getWinner();
+                    if (res != Types.RESULT.LOSS)
+                        numNonLoss++;
+                }
+                isEnded = numNonLoss <= 1;
             }
-            isEnded = numNonLoss <= 1;
         }
 
         //We need to set all the winning conditions for the tribes if the game is over.
@@ -747,6 +842,17 @@ public class GameState {
 
     public Random getRandomGenerator() {
         return rnd;
+    }
+
+    /** v4 Isolation Phase hook: deterministically replace the game-state {@link Random}. Used by
+     *  {@link core.data.exp.IsolationPhaseRunner} to pin the engine's randomness across all agents
+     *  evaluating the same (scenario, visit) — without this, ActionCommands that consult
+     *  {@code gs.getRandomGenerator()} (Examine, LevelUp(EXPLORER)) produce different outcomes across
+     *  agents on the same visit seed and the paired-comparison guarantee breaks.
+     *  {@link GameState#copy} mints a fresh-time-seeded {@link Random} on purpose for normal play;
+     *  v4 calls this method immediately after {@code copy()} to override that for paired evaluation. */
+    public void setRandomGenerator(Random r) {
+        this.rnd = r;
     }
 
     boolean isNative() {

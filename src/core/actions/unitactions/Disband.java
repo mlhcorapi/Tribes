@@ -20,7 +20,8 @@ public class Disband extends UnitAction
     @Override
     public boolean isFeasible(final GameState gs)
     {
-        Unit unit = (Unit) gs.getActor(this.unitId);
+        Unit unit = gs.getActor(this.unitId, Unit.class);
+        if(unit == null) return false;
         TechnologyTree tt = gs.getTribe(unit.getTribeId()).getTechTree();
         return unit.isFresh() && tt.isResearched(Types.TECHNOLOGY.FREE_SPIRIT);
     }

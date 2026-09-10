@@ -2,9 +2,12 @@ package core;
 
 import core.game.Board;
 
+import java.io.Serializable;
+
 import static core.TribesConfig.ALLEGIANCE_MAX;
 
-public class Diplomacy {
+public class Diplomacy implements Serializable {
+    private static final long serialVersionUID = 1L;
 
     // stores the allegiances of the tribes
     private int[][] allegianceStatus;

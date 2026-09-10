@@ -6,6 +6,7 @@ import core.actions.Action;
 import core.actors.Tribe;
 import core.game.Board;
 import core.game.GameState;
+import core.actors.Actor;
 import core.actors.City;
 import utils.Vector2d;
 
@@ -29,7 +30,10 @@ public class ResourceGathering extends CityAction
     @Override
     public boolean isFeasible(final GameState gs)
     {
-        City city = (City) gs.getActor(this.cityId);
+        // A stale/mutated cityId can resolve to a non-City actor (e.g. a SuperUnit, since actor
+        // ids are shared) or to nothing at all. Treat that as infeasible rather than throwing.
+        City city = gs.getActor(this.cityId, City.class);
+        if (city == null) return false;
         Board b = gs.getBoard();
         Tribe t = b.getTribe(city.getTribeId());
 
@@ -59,7 +63,11 @@ public class ResourceGathering extends CityAction
 
     public String toString()
     {
-        return "RESOURCE_GATHERED by city " + this.cityId+ " : " + resource.toString();
+        // targetPos is part of this action's identity (one action per resource TILE; see the
+        // factory and isFeasible). It must be in the string: the EMCTS-family agents key
+        // sequences by toString (seqKey / UniqueSequences), and omitting the tile made two
+        // same-type gathers at different tiles collide (verified by ActionKeyCollisionProbe).
+        return "RESOURCE_GATHERED by city " + this.cityId + " at " + targetPos + " : " + resource.toString();
     }
 
     public boolean equals(Object o) {

@@ -4,7 +4,11 @@ import core.actors.City;
 import core.game.GameState;
 import utils.stats.StatSummary;
 
+import core.actors.units.Unit;
 import java.util.ArrayList;
+
+import core.Constants;
+import core.Types;
 
 /**
  * Compares some important game metrics between an old gamestate and a new gamestate. Returns a score called 'entropy'.
@@ -36,7 +40,7 @@ public class TribesDiffHeuristic implements StateHeuristic {
                 othersScore.add(scores[i]);
         }
 
-        double scoreDiff = myScore - othersScore.mean();
+        double scoreDiff = othersScore.n() > 0 ? myScore - othersScore.mean() : myScore;
         double scoreOwn = scoreOwn(gsOld, gsNew);
         return scoreDiff + scoreOwn;
     }
@@ -82,6 +86,40 @@ public class TribesDiffHeuristic implements StateHeuristic {
         for(City c : gsOld.getCities(playerId))
             sumCityLevelsOld += c.getLevel();
 
+        int unitPositionRewardOld = 0;
+        core.game.Board boardOld = gsOld.getBoard();
+        ArrayList<Unit> unitsOld = gsOld.getUnits(playerId);
+        for (int i = 0; i < unitsOld.size(); i++) {
+            Unit u = unitsOld.get(i);
+            int x = u.getPosition().x;
+            int y = u.getPosition().y;
+            Types.TERRAIN t = boardOld.getTerrainAt(x, y);
+            Types.RESOURCE r = boardOld.getResourceAt(x, y);
+            int cityId = boardOld.getCityIdAt(x, y);
+            if (!u.isFresh()) {
+                if (t == Types.TERRAIN.VILLAGE || r == Types.RESOURCE.RUINS || (t == Types.TERRAIN.CITY && cityId != -1 && ((City) boardOld.getActor(cityId)).getTribeId() != playerId)) {
+                    unitPositionRewardOld += 10;
+                }
+            }
+        }
+
+        int unitPositionRewardNew = 0;
+        core.game.Board boardNew = gsNew.getBoard();
+        ArrayList<Unit> unitsNew = gsNew.getUnits(playerId);
+        for (int i = 0; i < unitsNew.size(); i++) {
+            Unit u = unitsNew.get(i);
+            int x = u.getPosition().x;
+            int y = u.getPosition().y;
+            Types.TERRAIN t = boardNew.getTerrainAt(x, y);
+            Types.RESOURCE r = boardNew.getResourceAt(x, y);
+            int cityId = boardNew.getCityIdAt(x, y);
+            if (!u.isFresh()) {
+                if (t == Types.TERRAIN.VILLAGE || r == Types.RESOURCE.RUINS || (t == Types.TERRAIN.CITY && cityId != -1 && ((City) boardNew.getActor(cityId)).getTribeId() != playerId)) {
+                    unitPositionRewardNew += 10;
+                }
+            }
+        }
+
         difference += 5 * (production - gsOld.getTribeProduction(playerId));
         difference += 4 * (technologies - gsOld.getTribeTechTree(playerId).getNumResearched());
         difference += 0.1 * (score - gsOld.getScore(playerId));
@@ -89,6 +127,17 @@ public class TribesDiffHeuristic implements StateHeuristic {
         difference += 2 * (units - gsOld.getUnits(playerId).size());
         difference += 3 * (kills - gsOld.getNKills(playerId));
         difference += 2 * (sumCityLevelsNew - sumCityLevelsOld);
+        difference += (unitPositionRewardNew - unitPositionRewardOld);
+
+        if (Constants.REMOVE_FISHING) {
+            core.TechnologyTree ttOld = gsOld.getTribeTechTree(playerId);
+            core.TechnologyTree ttNew = gsNew.getTribeTechTree(playerId);
+            if (ttNew.isResearched(Types.TECHNOLOGY.FISHING) && !ttOld.isResearched(Types.TECHNOLOGY.FISHING)) difference -= 100;
+            if (ttNew.isResearched(Types.TECHNOLOGY.SAILING) && !ttOld.isResearched(Types.TECHNOLOGY.SAILING)) difference -= 100;
+            if (ttNew.isResearched(Types.TECHNOLOGY.WHALING) && !ttOld.isResearched(Types.TECHNOLOGY.WHALING)) difference -= 100;
+            if (ttNew.isResearched(Types.TECHNOLOGY.NAVIGATION) && !ttOld.isResearched(Types.TECHNOLOGY.NAVIGATION)) difference -= 100;
+            if (ttNew.isResearched(Types.TECHNOLOGY.AQUATISM) && !ttOld.isResearched(Types.TECHNOLOGY.AQUATISM)) difference -= 100;
+        }
 
         return difference;
     }

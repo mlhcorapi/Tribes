@@ -1,0 +1,42 @@
+{
+  "Run Mode": "PlayLG",
+  "Run Mode comment": "PlayLG (random level generator) / PlayFile (from levels/*.csv) / Replay (from a savegame)",
+
+  "Action Pause Millis": 700,
+  "Action Pause Millis comment": "Pause in milliseconds between each action being executed visually.",
+  "Turn Pause Millis": 2500,
+  "Turn Pause Millis comment": "Pause in milliseconds between each player's turn.",
+
+  "Players": [
+    "CrossoverExpansion",
+    "EMCTS"
+  ],
+  "Players comment": "Algorithms, one per tribe: Human, Do Nothing, Random, Rule Based, OSLA, MC, MCTS, RHEA, OEP, pMCTS, EMCTS, CrossoverBB, CrossoverExpansion, CrossoverCombo",
+
+  "Tribes": [
+    "Xin Xi",
+    "Imperius"
+  ],
+  "Tribes comment": "Tribes, one per player: Xin Xi, Imperius, Imperius2, Bardur, Oumaji, Kickoo, Hoodrick, Luxidoor, Vengir, Zebasi, Ai-Mo, Quetzali, Yadakk",
+
+  "Game Mode": "Capitals",
+  "Game Mode comment": "Capitals / Score",
+
+  "Search Depth": 20,
+  "Force End": false,
+  "Rollouts": false,
+  "Population Size": 1,
+  "Progressive Bias": true,
+  "Pruning": true,
+  "K init mult": 0.5,
+  "T mult": 2.0,
+  "A mult": 1.5,
+  "B": 1.3,
+  "Verbose": false,
+  "Replay File Name": "save/1590072023986/0_0/game.json",
+  "Level File": "levels/SampleLevel.csv",
+  "Game Seed": "-1",
+  "Agents Seed": "-1",
+  "Level Seed": "-1",
+  "Remove Fishing": true
+}

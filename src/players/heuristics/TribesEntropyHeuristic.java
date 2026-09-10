@@ -3,7 +3,12 @@ package players.heuristics;
 import core.game.GameState;
 import utils.stats.StatSummary;
 
+import core.actors.City;
+import core.actors.units.Unit;
 import java.util.ArrayList;
+
+import core.Constants;
+import core.Types;
 
 /**
  * Compares some important game metrics between an old gamestate and a new gamestate. Returns a score called 'entropy'.
@@ -36,7 +41,7 @@ public class TribesEntropyHeuristic implements StateHeuristic {
                 othersScore.add(scores[i]);
         }
 
-        double scoreDiff = myScore - othersScore.mean();
+        double scoreDiff = othersScore.n() > 0 ? myScore - othersScore.mean() : myScore;
         double scoreOwn = scoreOwn(gsOld, gsNew);
         return scoreDiff + scoreOwn;
     }
@@ -73,12 +78,57 @@ public class TribesEntropyHeuristic implements StateHeuristic {
         //compare with old metrics and calculate entropy.
         double entropy = 0;
 
+        int unitPositionRewardOld = 0;
+        core.game.Board boardOld = gsOld.getBoard();
+        ArrayList<Unit> unitsOld = gsOld.getUnits(playerId);
+        for (int i = 0; i < unitsOld.size(); i++) {
+            Unit u = unitsOld.get(i);
+            int x = u.getPosition().x;
+            int y = u.getPosition().y;
+            Types.TERRAIN t = boardOld.getTerrainAt(x, y);
+            Types.RESOURCE r = boardOld.getResourceAt(x, y);
+            int cityId = boardOld.getCityIdAt(x, y);
+            if (!u.isFresh()) {
+                if (t == Types.TERRAIN.VILLAGE || r == Types.RESOURCE.RUINS || (t == Types.TERRAIN.CITY && cityId != -1 && ((City) boardOld.getActor(cityId)).getTribeId() != playerId)) {
+                    unitPositionRewardOld += 10;
+                }
+            }
+        }
+
+        int unitPositionRewardNew = 0;
+        core.game.Board boardNew = gsNew.getBoard();
+        ArrayList<Unit> unitsNew = gsNew.getUnits(playerId);
+        for (int i = 0; i < unitsNew.size(); i++) {
+            Unit u = unitsNew.get(i);
+            int x = u.getPosition().x;
+            int y = u.getPosition().y;
+            Types.TERRAIN t = boardNew.getTerrainAt(x, y);
+            Types.RESOURCE r = boardNew.getResourceAt(x, y);
+            int cityId = boardNew.getCityIdAt(x, y);
+            if (!u.isFresh()) {
+                if (t == Types.TERRAIN.VILLAGE || r == Types.RESOURCE.RUINS || (t == Types.TERRAIN.CITY && cityId != -1 && ((City) boardNew.getActor(cityId)).getTribeId() != playerId)) {
+                    unitPositionRewardNew += 10;
+                }
+            }
+        }
+
         entropy += production > gsOld.getTribeProduction(playerId) ? 1 : 0;
         entropy += technologies > gsOld.getTribeTechTree(playerId).getNumResearched() ? 1 : 0;
         entropy += score > gsOld.getScore(playerId) ? 1 : 0;
         entropy += cities > gsOld.getCities(playerId).size() ? 1 : 0;
         entropy += units > gsOld.getUnits(playerId).size() ? 1 : 0;
         entropy += kills > gsOld.getNKills(playerId) ? 1 : 0;
+        entropy += unitPositionRewardNew > unitPositionRewardOld ? 1 : 0;
+
+        if (Constants.REMOVE_FISHING) {
+            core.TechnologyTree ttOld = gsOld.getTribeTechTree(playerId);
+            core.TechnologyTree ttNew = gsNew.getTribeTechTree(playerId);
+            if (ttNew.isResearched(Types.TECHNOLOGY.FISHING) && !ttOld.isResearched(Types.TECHNOLOGY.FISHING)) entropy -= 1;
+            if (ttNew.isResearched(Types.TECHNOLOGY.SAILING) && !ttOld.isResearched(Types.TECHNOLOGY.SAILING)) entropy -= 1;
+            if (ttNew.isResearched(Types.TECHNOLOGY.WHALING) && !ttOld.isResearched(Types.TECHNOLOGY.WHALING)) entropy -= 1;
+            if (ttNew.isResearched(Types.TECHNOLOGY.NAVIGATION) && !ttOld.isResearched(Types.TECHNOLOGY.NAVIGATION)) entropy -= 1;
+            if (ttNew.isResearched(Types.TECHNOLOGY.AQUATISM) && !ttOld.isResearched(Types.TECHNOLOGY.AQUATISM)) entropy -= 1;
+        }
 
         return entropy;
     }

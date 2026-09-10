@@ -18,13 +18,14 @@ public class DisbandCommand implements ActionCommand {
         Disband action = (Disband)a;
         int unitId = action.getUnitId();
 
-        Unit unit = (Unit) gs.getActor(unitId);
-        Board b = gs.getBoard();
-        Tribe t = gs.getTribe(unit.getTribeId());
-        City c = (City) b.getActor(unit.getCityId());
-
         if(action.isFeasible(gs))
         {
+            Unit unit = gs.getActor(unitId, Unit.class);
+            Board b = gs.getBoard();
+            Tribe t = gs.getTribe(unit.getTribeId());
+            //null when the unit belongs to the tribe rather than a city; removeUnitFromCity handles it.
+            City c = b.getActor(unit.getCityId(), City.class);
+
             int starsGained = (int) (unit.COST / 2.0); //half, rounded down
             t.addStars(starsGained);
             b.removeUnitFromBoard(unit);

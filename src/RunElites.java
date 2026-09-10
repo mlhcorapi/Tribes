@@ -82,6 +82,10 @@ public class RunElites {
                 Run.MAX_LENGTH = config.getInt("Search Depth");
                 Run.FORCE_TURN_END = config.getBoolean("Force End");
                 Run.MCTS_ROLLOUTS = config.getBoolean("Rollouts");
+                // TBETS rollouts are a separate, much more expensive thing than MCTS's
+                // (a whole scripted TURN per node, not a bounded action rollout), so they get
+                // their own optional key and stay off unless a config asks for them.
+                Run.TBETS_ROLLOUTS = config.optBoolean("TBETS Rollouts", false);
 
                 //Portfolio and pruning variables:
                 Run.PRUNING = config.getBoolean("Pruning");

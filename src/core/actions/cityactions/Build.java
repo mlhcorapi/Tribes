@@ -58,7 +58,8 @@ public class Build extends CityAction
                 boolean buildingConstraintsOk = isBuildable(gs, buildingType.getCost(), false);
                 if(buildingConstraintsOk)
                 {
-                    City city = (City) gs.getActor(this.cityId);
+                    City city = gs.getActor(this.cityId, City.class);
+                    if(city == null) return false;
                     Tribe tribe = gs.getTribe(city.getTribeId());
                     return tribe.isMonumentBuildable(buildingType);
                 }
@@ -76,7 +77,8 @@ public class Build extends CityAction
     }
 
     private boolean isBuildable(final GameState gs, int cost, boolean checkIfUnique) {
-        City city = (City) gs.getActor(this.cityId);
+        City city = gs.getActor(this.cityId, City.class);
+        if(city == null) return false;
         Tribe tribe = gs.getTribe(city.getTribeId());
         Board board = gs.getBoard();
         TechnologyTree techTree = tribe.getTechTree();

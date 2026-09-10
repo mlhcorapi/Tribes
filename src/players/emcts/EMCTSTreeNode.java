@@ -74,7 +74,7 @@ public class EMCTSTreeNode {
     public void visited(){ times_visited++; } // if needs be
 
     public void refreshScore(float bias){
-        this.score = value + bias * Math.sqrt((Math.log((getParentVisited())/times_visited)));
+        this.score = this.value;
     }
 
     public void setGs(GameState gs) {
@@ -93,8 +93,5 @@ public class EMCTSTreeNode {
     //used to erase links to all other objects this JVM should clear it
     public void unlink(){
         this.parent = null;
-        this.children = null;
-        this.gs = null;
-        this.sequence=null;
     }
 }

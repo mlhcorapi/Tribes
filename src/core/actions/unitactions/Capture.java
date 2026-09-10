@@ -34,15 +34,15 @@ public class Capture extends UnitAction
     @Override
     public boolean isFeasible(final GameState gs)
     {
-        Unit unit = (Unit) gs.getActor(this.unitId);
-        if(!unit.isFresh()) return false;
+        Unit unit = gs.getActor(this.unitId, Unit.class);
+        if(unit == null || !unit.isFresh()) return false;
 
         Board b = gs.getBoard();
 
         if(captureType == Types.TERRAIN.CITY)
         {
             // If unit not in city, city belongs to the units tribe or if city is null then action is not feasible
-            City targetCity = (City) gs.getActor(this.targetCityId);
+            City targetCity = gs.getActor(this.targetCityId, City.class);
             if(targetCity == null) return false;
 
             Vector2d targetPos = targetCity.getPosition();

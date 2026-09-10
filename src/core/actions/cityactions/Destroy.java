@@ -19,7 +19,8 @@ public class Destroy extends CityAction
     @Override
     public boolean isFeasible(final GameState gs)
     {
-        City city = (City) gs.getActor(this.cityId);
+        City city = gs.getActor(this.cityId, City.class);
+        if(city == null) return false;
         if(gs.getBoard().getBuildingAt(targetPos.x, targetPos.y) == null) return false;
         Building buildingToRemove = city.getBuilding(targetPos.x, targetPos.y);
         if(buildingToRemove == null || buildingToRemove.type == null) return false;

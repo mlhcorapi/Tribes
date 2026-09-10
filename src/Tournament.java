@@ -65,6 +65,10 @@ public class Tournament {
                 Run.MAX_LENGTH = config.getInt("Search Depth");
                 Run.FORCE_TURN_END = config.getBoolean("Force End");
                 Run.MCTS_ROLLOUTS = config.getBoolean("Rollouts");
+                // TBETS rollouts are a separate, much more expensive thing than MCTS's
+                // (a whole scripted TURN per node, not a bounded action rollout), so they get
+                // their own optional key and stay off unless a config asks for them.
+                Run.TBETS_ROLLOUTS = config.optBoolean("TBETS Rollouts", false);
                 Run.POP_SIZE = config.getInt("Population Size");
                 shiftTribes = config.getBoolean("Shift Tribes");
 
@@ -101,6 +105,9 @@ public class Tournament {
                 if(config.has("pMCTS Weights"))
                     weights = (JSONArray) config.get("pMCTS Weights");
                 Run.pMCTSweights = Run.getWeights(weights);
+
+                if(config.has("Remove Fishing"))
+                    Constants.REMOVE_FISHING = config.getBoolean("Remove Fishing");
 
             } catch (Exception e) {
                 System.out.println("Malformed JSON config file: " + e);

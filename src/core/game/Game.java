@@ -42,6 +42,13 @@ public class Game {
     // Is the game paused from the GUI?
     private boolean paused, animationPaused;
 
+    // Followable demo mode (for recording an example game). When enabled, the game renders the
+    // initial state and then waits for the user to press "Start" in the GUI before the first turn.
+    // It also pauses for 'followableTurnPauseMillis' between players' turns. Per-action pacing is
+    // handled separately via Constants.FRAME_DELAY (the delay between consecutive actions).
+    private boolean followable = false;
+    private long followableTurnPauseMillis = 0;
+
     // AI stats for each player.
     private AIStats[] aiStats;
 
@@ -123,6 +130,66 @@ public class Game {
         this.gs.setGameIsOver(gameLoader.getGameIsOver());
         initGameStructures(players, tribes.length);
         updateAssignedGameStates();
+    }
+
+    /**
+     * Initializes the game from an already-constructed GameState (a captured "start position"), instead
+     * of generating a fresh board from a seed. Mirrors {@link #init(ArrayList, String)} but takes the
+     * state in memory rather than loading from disk, so a game can begin from a fixed mid-game position
+     * (see {@link #captureAtTick}). The caller owns isolation across parallel games: pass a fresh
+     * {@code startState.copy()} per game. Game-level randomness lives inside the GameState, so {@code seed}
+     * here is only a placeholder (unused once the board exists).
+     */
+    public void initFromState(ArrayList<Agent> players, GameState startState) {
+        this.seed = 0;
+        this.rnd = new Random(0);
+        this.gs = startState;
+        initGameStructures(players, this.gs.getTribes().length);
+        updateAssignedGameStates();
+    }
+
+    /**
+     * Plays the game forward HEADLESS until the start of tick {@code stopTick} (i.e. after ticks
+     * 0..stopTick-1 have been fully played, before any tribe acts in stopTick), then returns a deep copy
+     * of the full game state. Used to capture a fixed "start position" once - e.g. the turn-3 board, past
+     * the degenerate opening where every agent plays identically - so all Phase-3 games can begin from the
+     * same non-trivial position. Players must already be set (call an init(...) first).
+     */
+    public GameState captureAtTick(int stopTick) {
+        while (gs.getTick() < stopTick && !gameOver()) {
+            tick(null);
+        }
+        return gs.copy();
+    }
+
+    /**
+     * Like {@link #captureAtTick} but additionally prepares the snapshot so {@code tribes[0]} is the
+     * active tribe at {@code stopTick} — mirroring what {@code processTurn} would do as it begins
+     * tribes[0]'s turn. Use this for portfolio captures where the captured state is consumed by a single
+     * {@code agent.act()} call rather than fed back into {@code Game.run}: at the end of {@link #tick},
+     * {@code activeTribeID} is left pointing at the LAST tribe to have acted in the previous tick
+     * (e.g. tribe 1 / IMPERIUS2). For single-player source games (EMCTS vs DoNothing) that "last tribe"
+     * is the passive opponent — which has no cities/units, so an experiment agent reading
+     * {@code gs.getActiveTribeID()} would silently take the role of the wrong player.
+     *
+     * <p>v3's {@link core.data.exp.Phase3Runner} still uses the plain {@link #captureAtTick} because it
+     * calls {@code Game.run} on the captured state — which itself runs {@code initTurn} on tribes[0] in
+     * the first iteration, so calling it here too would double-process the turn.
+     */
+    public GameState captureAtTickAsTurnStart(int stopTick) {
+        while (gs.getTick() < stopTick && !gameOver()) {
+            tick(null);
+        }
+        // Snapshot FIRST so the initTurn fixup is applied only to the returned state; subsequent
+        // captures of later ticks (e.g. BuildV4Portfolio iterating ticks 21..30) continue from the live
+        // game without the extra initTurn rolling resource/star/unit-status counters twice.
+        GameState snap = gs.copy();
+        Tribe[] tribes = snap.getTribes();
+        if (tribes.length > 0 && !snap.isGameOver()) {
+            snap.initTurn(tribes[0]);
+            snap.computePlayerActions(tribes[0]);
+        }
+        return snap;
     }
 
     /**
@@ -213,6 +280,20 @@ public class Game {
 
         boolean firstEnd = true;
 
+        // Followable demo mode: keep painting the initial board (map, scores, tech tree) and wait
+        // until the user presses "Start" in the window before playing the first turn. We repaint
+        // inside the loop (not just once) so the map is drawn as soon as the window is realised.
+        if (followable && frame != null) {
+            while (!frame.isClosed() && !frame.isStarted()) {
+                frame.update(getGameState(-1), null);
+                try {
+                    Thread.sleep(60);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        }
+
         while (frame == null || !frame.isClosed()) {
 //            System.out.println("Frame closed: " + frame.isClosed());
             // Loop while window is still open, even if the game ended.
@@ -225,7 +306,11 @@ public class Game {
 
                 firstEnd = false;
 
-                printGameResults();
+                // Gated on VERBOSE (default true, so interactive play is unchanged). A batch
+                // experiment running thousands of games concurrently sets it false: five lines per
+                // game from N worker threads interleave into an unreadable log and bury the runner's
+                // own progress output. Console only - no effect on the game or its results.
+                if (VERBOSE) printGameResults();
                 if (LOG_STATS) {
                     TreeSet<TribeResult> ranking = getCurrentRanking();
                     for (TribeResult tr : ranking) {
@@ -272,7 +357,6 @@ public class Game {
      */
     private void tick(GUI frame) {
 
-//        System.out.println("Tick: " + gs.getTick());
         Tribe[] tribes = gs.getTribes();
         for (int i = 0; i < numPlayers; i++) {
             Tribe tribe = tribes[i];
@@ -291,6 +375,16 @@ public class Game {
             //it may be that this player won the game, no more playing.
             if (gameOver()) {
                 return;
+            }
+
+            // Followable demo mode: pause between players' turns so viewers can follow along.
+            if (followable && frame != null && followableTurnPauseMillis > 0 && !frame.isClosed()) {
+                frame.update(getGameState(-1), null);
+                try {
+                    Thread.sleep(followableTurnPauseMillis);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
             }
 
             // Check if game should be paused automatically after this turn
@@ -584,6 +678,16 @@ public class Game {
 
     public boolean isPaused() {
         return paused;
+    }
+
+    /**
+     * Enables "followable" demo mode for recording an example game.
+     * @param followable whether to wait for a Start press and pause between turns.
+     * @param turnPauseMillis pause (in milliseconds) inserted between players' turns.
+     */
+    public void setFollowable(boolean followable, long turnPauseMillis) {
+        this.followable = followable;
+        this.followableTurnPauseMillis = turnPauseMillis;
     }
 
     public TreeSet<TribeResult> getCurrentRanking() {

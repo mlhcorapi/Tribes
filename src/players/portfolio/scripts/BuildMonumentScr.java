@@ -33,23 +33,28 @@ public class BuildMonumentScr extends BaseScript {
         Types.BUILDING[] targets = new Types.BUILDING[]{ALTAR_OF_PEACE, EMPERORS_TOMB, EYE_OF_GOD, GATE_OF_POWER,
                 PARK_OF_FORTUNE, TOWER_OF_WISDOM, GRAND_BAZAR,};
 
+        int numTies = 0;
+        Action finalAction = null;
         for(Types.BUILDING target : targets){
             Pair<Action, Double> p = new BuildingFunc().buildInIdle(target, gs, actions, rnd);
             if(p != null) {
                 Action buildMonument = p.getFirst();
                 double score = p.getSecond();
                 if (score > bestScore) {
-                    candidate_actions.clear();
                     bestScore = score;
+                    numTies = 1;
+                    finalAction = buildMonument;
+                } else if (score == bestScore) {
+                    numTies++;
+                    if (rnd.nextInt(numTies) == 0) {
+                        finalAction = buildMonument;
+                    }
                 }
-                if (score == bestScore)
-                    candidate_actions.add(buildMonument);
             }
         }
 
-        int nActions = candidate_actions.size();
-        if( nActions > 0)
-            return new Pair<>(candidate_actions.get(rnd.nextInt(nActions)), bestScore);
+        if(finalAction != null)
+            return new Pair<>(finalAction, bestScore);
         return null;
     }
 

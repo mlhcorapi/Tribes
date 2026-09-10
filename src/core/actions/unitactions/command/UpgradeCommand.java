@@ -23,12 +23,13 @@ public class UpgradeCommand implements ActionCommand {
         Upgrade action = (Upgrade)a;
         int unitId = action.getUnitId();
 
-        Unit unit = (Unit) gs.getActor(unitId);
-        Tribe tribe = gs.getTribe(unit.getTribeId());
-        Board board = gs.getBoard();
-        City city = (City) board.getActor(unit.getCityId());
-
         if(action.isFeasible(gs)){
+            Unit unit = gs.getActor(unitId, Unit.class);
+            Tribe tribe = gs.getTribe(unit.getTribeId());
+            Board board = gs.getBoard();
+            //null when the unit belongs to the tribe rather than a city.
+            City city = board.getActor(unit.getCityId(), City.class);
+
             Types.UNIT unitType = unit.getType();
             Types.UNIT nextType;
 

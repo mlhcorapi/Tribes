@@ -31,6 +31,8 @@ public class GrowForestScr extends BaseScript {
         ArrayList<Action> candidate_actions = new ArrayList<>();
         double bestScore = 0;
 
+        int numTies = 0;
+        Action finalAction = null;
         for(Action act : actions)
         {
             GrowForest action = (GrowForest)act;
@@ -41,17 +43,19 @@ public class GrowForestScr extends BaseScript {
             //Grow if good place for a lumber hut
 
             if (score > bestScore) {
-                candidate_actions.clear();
                 bestScore = score;
+                numTies = 1;
+                finalAction = act;
+            } else if (score == bestScore) {
+                numTies++;
+                if (rnd.nextInt(numTies) == 0) {
+                    finalAction = act;
+                }
             }
-            if (score == bestScore)
-                candidate_actions.add(act);
-
         }
 
-        int nActions = candidate_actions.size();
-        if( nActions > 0)
-            return new Pair<> (candidate_actions.get(rnd.nextInt(nActions)), bestScore);
+        if(finalAction != null)
+            return new Pair<> (finalAction, bestScore);
         return null;
     }
 

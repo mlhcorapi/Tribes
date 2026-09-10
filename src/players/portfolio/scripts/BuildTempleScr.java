@@ -32,23 +32,29 @@ public class BuildTempleScr extends BaseScript {
         //Looks for the first monument that can be built in an idle space. Returns null if no idle spaces.
         Types.BUILDING[] targets = new Types.BUILDING[]{TEMPLE, FOREST_TEMPLE, WATER_TEMPLE, MOUNTAIN_TEMPLE};
 
+        int numTies = 0;
+        Action finalAction = null;
         for(Types.BUILDING target : targets){
             Pair<Action, Double> p = new BuildingFunc().buildInIdle(target, gs, actions, rnd);
             if(p != null) {
                 Action buildTempleAction = p.getFirst();
                 double score = p.getSecond();
                 if (score > bestScore) {
-                    candidate_actions.clear();
                     bestScore = score;
+                    numTies = 1;
+                    finalAction = buildTempleAction;
+                } else if (score == bestScore) {
+                    numTies++;
+                    if (rnd.nextInt(numTies) == 0) {
+                        finalAction = buildTempleAction;
+                    }
                 }
-                if (score == bestScore)
-                    candidate_actions.add(buildTempleAction);
             }
         }
 
-        int nActions = candidate_actions.size();
-        if( nActions > 0)
-            return new Pair<>(candidate_actions.get(rnd.nextInt(nActions)), bestScore);
+        if(finalAction != null)
+            return new Pair<>(finalAction, bestScore);
+
         return null;
     }
 

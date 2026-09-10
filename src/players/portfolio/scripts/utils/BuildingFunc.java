@@ -77,6 +77,8 @@ public class BuildingFunc {
         ArrayList<Action> candidate_actions = new ArrayList<>();
 
         double highestNeigh = 0;
+        int numTies = 0;
+        Action finalAction = null;
         for(Action act : actions)
         {
             boolean typeCheck = (act instanceof Build && ((Build)act).getBuildingType() == target)  //if building, check we're building the correct target
@@ -89,20 +91,21 @@ public class BuildingFunc {
 
                 if(goodNeigh > highestNeigh)
                 {
-                    candidate_actions = new ArrayList<>();
                     highestNeigh = goodNeigh;
-                    candidate_actions.add(act);
-                }else if (goodNeigh == highestNeigh)
-                {
-                    candidate_actions.add(act);
+                    numTies = 1;
+                    finalAction = act;
+                } else if (goodNeigh == highestNeigh) {
+                    numTies++;
+                    if (rnd.nextInt(numTies) == 0) {
+                        finalAction = act;
+                    }
                 }
             }
         }
 
-        if(candidate_actions.size() > 0)
+        if(finalAction != null)
         {
-            int nActions = candidate_actions.size();
-            return new Pair<>(candidate_actions.get(rnd.nextInt(nActions)), highestNeigh);
+            return new Pair<>(finalAction, highestNeigh);
         }
 
         return null;
@@ -113,6 +116,8 @@ public class BuildingFunc {
     {
         ArrayList<Action> candidate_actions = new ArrayList<>();
         double bestSupportedVal = -1;
+        int numTies = 0;
+        Action finalAction = null;
         for(Action act : actions)
         {
             Build action = (Build)act;
@@ -135,19 +140,20 @@ public class BuildingFunc {
 
                 if(bestForBonus > bestSupportedVal)
                 {
-                    candidate_actions.add(act);
                     bestSupportedVal = bestForBonus;
-                    candidate_actions = new ArrayList<>();
-                }else if(bestForBonus == bestSupportedVal)
-                {
-                    candidate_actions.add(act);
+                    numTies = 1;
+                    finalAction = act;
+                } else if(bestForBonus == bestSupportedVal) {
+                    numTies++;
+                    if (rnd.nextInt(numTies) == 0) {
+                        finalAction = act;
+                    }
                 }
             }
         }
 
-        int nActions = candidate_actions.size();
-        if( nActions > 0) {
-            return new Pair<>(candidate_actions.get(rnd.nextInt(nActions)), bestSupportedVal);
+        if(finalAction != null) {
+            return new Pair<>(finalAction, bestSupportedVal);
         }
         return null;
     }
@@ -199,6 +205,8 @@ public class BuildingFunc {
         ArrayList<Action> candidate_actions = new ArrayList<>();
         double bestScore = 0;
 
+        int numTies = 0;
+        Action finalAction = null;
         for(Action act : actions)
         {
             Build action = (Build)act;
@@ -213,20 +221,21 @@ public class BuildingFunc {
 
                 if(score > bestScore)
                 {
-                    candidate_actions.clear();
                     bestScore = score;
+                    numTies = 1;
+                    finalAction = act;
+                } else if(score == bestScore) {
+                    numTies++;
+                    if (rnd.nextInt(numTies) == 0) {
+                        finalAction = act;
+                    }
                 }
-                if(score == bestScore)
-                    candidate_actions.add(act);
-
             }
         }
 
-        int nActions = candidate_actions.size();
-        if( nActions > 0) {
-            Action chosen = candidate_actions.get(rnd.nextInt(nActions));
+        if(finalAction != null) {
             double value = Utils.normalise(bestScore, -1, 1);
-            new Pair<>(chosen, value);
+            return new Pair<>(finalAction, value);
         }
         return null;
     }

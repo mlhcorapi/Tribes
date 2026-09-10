@@ -17,7 +17,8 @@ public class BurnForest extends CityAction
 
     @Override
     public boolean isFeasible(final GameState gs) {
-        City city = (City) gs.getActor(this.cityId);
+        City city = gs.getActor(this.cityId, City.class);
+        if(city == null) return false;
 
         Board b = gs.getBoard();
         if(b.getTerrainAt(targetPos.x, targetPos.y) != Types.TERRAIN.FOREST) return false;

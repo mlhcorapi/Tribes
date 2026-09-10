@@ -19,15 +19,12 @@ public class RecoverCommand implements ActionCommand {
         Recover action = (Recover)a;
         int unitId = action.getUnitId();
 
-        Unit unit = (Unit) gs.getActor(unitId);
-        if(unit == null)
-            return false;
-
-        int currentHP = unit.getCurrentHP();
-        int addHP = RECOVER_PLUS_HP;
-
         //Check if action is feasible before execution
         if (action.isFeasible(gs)) {
+
+            Unit unit = gs.getActor(unitId, Unit.class);
+            int currentHP = unit.getCurrentHP();
+            int addHP = RECOVER_PLUS_HP;
 
             int cityID = gs.getBoard().getCityIdAt(unit.getPosition().x, unit.getPosition().y);
             if (cityID != -1){

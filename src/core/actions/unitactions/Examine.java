@@ -20,7 +20,8 @@ public class Examine extends UnitAction
 
     @Override
     public boolean isFeasible(final GameState gs) {
-        Unit unit = (Unit) gs.getActor(this.unitId);
+        Unit unit = gs.getActor(this.unitId, Unit.class);
+        if(unit == null) return false;
         Vector2d unitPos = unit.getPosition();
         Tribe t = gs.getTribe(unit.getTribeId());
         if(t.getCitiesID().size() == 0)

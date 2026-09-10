@@ -2,7 +2,10 @@ package core.actors;
 
 import utils.Vector2d;
 
-public abstract class Actor {
+import java.io.Serializable;
+
+public abstract class Actor implements Serializable {
+    private static final long serialVersionUID = 1L;
 
     /**
      * Unique ID of this actor. It won't repeat through the game for any other.

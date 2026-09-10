@@ -2,13 +2,15 @@ package core;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Random;
 
 import static core.Types.TECHNOLOGY.*;
 
-public class TechnologyTree {
+public class TechnologyTree implements Serializable {
+    private static final long serialVersionUID = 1L;
 
     // Array that indicates if tech. idx is researched already.
     private boolean[] researched;

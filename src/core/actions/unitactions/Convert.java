@@ -25,11 +25,11 @@ public class Convert extends UnitAction
 
     @Override
     public boolean isFeasible(final GameState gs) {
-        Unit target = (Unit) gs.getActor(this.targetId);
-        Unit unit = (Unit) gs.getActor(this.unitId);
+        Unit target = gs.getActor(this.targetId, Unit.class);
+        Unit unit = gs.getActor(this.unitId, Unit.class);
 
         //Only MIND_BENDER can execute this action
-        if(unit.getType() != Types.UNIT.MIND_BENDER)
+        if(unit == null || unit.getType() != Types.UNIT.MIND_BENDER)
             return false;
 
         // Check if target is not null

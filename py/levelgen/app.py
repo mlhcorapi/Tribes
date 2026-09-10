@@ -5,9 +5,9 @@ map_size = 16  # int(input('Enter map size (16): '))
 initial_land = 0.5  # float(input('Enter initial land (0.5): '))
 smoothing = 3  # int(input('Enter smoothing (3): '))
 relief = 4  # int(input('Enter relief (4): '))
-tribes = ['Xin-xi', 'Imperius', 'Bardur', 'Oumaji']  # list(map(str, input('Enter tribes: ').split()))
+tribes = ['Xin-xi', 'Imperius', 'Imperius2', 'Bardur', 'Oumaji']  # list(map(str, input('Enter tribes: ').split()))
 
-tribes_list = ['Xin-xi', 'Imperius', 'Bardur', 'Oumaji', 'Kickoo', 'Hoodrick', 'Luxidoor', 'Vengir', 'Zebasi',
+tribes_list = ['Xin-xi', 'Imperius', 'Imperius2', 'Bardur', 'Oumaji', 'Kickoo', 'Hoodrick', 'Luxidoor', 'Vengir', 'Zebasi',
                'Ai-mo', 'Quetzali', 'Yadakk', 'Aquarion', 'Elyrion', 'Polaris']
 
 terrain = ['forest', 'fruit', 'game', 'ground', 'mountain']
@@ -22,31 +22,31 @@ _ = 0.1
 
 BORDER_EXPANSION = 1 / 3
 
-terrain_probs = {'water': {'Xin-xi': 0, 'Imperius': 0, 'Bardur': 0, 'Oumaji': 0, 'Kickoo': 0.4,
+terrain_probs = {'water': {'Xin-xi': 0, 'Imperius': 0, 'Imperius2': 0, 'Bardur': 0, 'Oumaji': 0, 'Kickoo': 0.4,
                            'Hoodrick': 0, 'Luxidoor': 0, 'Vengir': 0, 'Zebasi': 0, 'Ai-mo': 0,
                            'Quetzali': 0, 'Yadakk': 0, 'Aquarion': 0.3, 'Elyrion': 0},
-                 'forest': {'Xin-xi': ___, 'Imperius': ___, 'Bardur': ___, 'Oumaji': _, 'Kickoo': ___,
+                 'forest': {'Xin-xi': ___, 'Imperius': ___, 'Imperius2': ___, 'Bardur': ___, 'Oumaji': _, 'Kickoo': ___,
                             'Hoodrick': ____, 'Luxidoor': ___, 'Vengir': ___, 'Zebasi': __, 'Ai-mo': ___,
                             'Quetzali': ___, 'Yadakk': __, 'Aquarion': __, 'Elyrion': ___},
-                 'mountain': {'Xin-xi': ____, 'Imperius': ___, 'Bardur': ___, 'Oumaji': ___, 'Kickoo': __,
+                 'mountain': {'Xin-xi': ____, 'Imperius': ___, 'Imperius2': ___, 'Bardur': ___, 'Oumaji': ___, 'Kickoo': __,
                               'Hoodrick': __, 'Luxidoor': ___, 'Vengir': ___, 'Zebasi': __, 'Ai-mo': ____,
                               'Quetzali': ___, 'Yadakk': __, 'Aquarion': ___, 'Elyrion': __},
-                 'metal': {'Xin-xi': ___, 'Imperius': ___, 'Bardur': ___, 'Oumaji': ___, 'Kickoo': ___,
+                 'metal': {'Xin-xi': ___, 'Imperius': ___, 'Imperius2': ___, 'Bardur': ___, 'Oumaji': ___, 'Kickoo': ___,
                            'Hoodrick': ___, 'Luxidoor': ___, 'Vengir': _____, 'Zebasi': ___, 'Ai-mo': ___,
                            'Quetzali': _, 'Yadakk': ___, 'Aquarion': ___, 'Elyrion': ___},
-                 'fruit': {'Xin-xi': ___, 'Imperius': ___, 'Bardur': ____, 'Oumaji': ___, 'Kickoo': ___,
+                 'fruit': {'Xin-xi': ___, 'Imperius': ___, 'Imperius2': ___, 'Bardur': ____, 'Oumaji': ___, 'Kickoo': ___,
                            'Hoodrick': ___, 'Luxidoor': _____, 'Vengir': _, 'Zebasi': __, 'Ai-mo': ___,
                            'Quetzali': _____, 'Yadakk': ____, 'Aquarion': ___, 'Elyrion': ___},
-                 'crop': {'Xin-xi': ___, 'Imperius': ___, 'Bardur': _, 'Oumaji': ___, 'Kickoo': ___,
+                 'crop': {'Xin-xi': ___, 'Imperius': ___, 'Imperius2': ___, 'Bardur': _, 'Oumaji': ___, 'Kickoo': ___,
                           'Hoodrick': ___, 'Luxidoor': ___, 'Vengir': ___, 'Zebasi': ___, 'Ai-mo': _,
                           'Quetzali': _, 'Yadakk': ___, 'Aquarion': ___, 'Elyrion': ____},
-                 'game': {'Xin-xi': ___, 'Imperius': ___, 'Bardur': _____, 'Oumaji': ___, 'Kickoo': ___,
+                 'game': {'Xin-xi': ___, 'Imperius': ___, 'Imperius2': ___, 'Bardur': _____, 'Oumaji': ___, 'Kickoo': ___,
                           'Hoodrick': ___, 'Luxidoor': __, 'Vengir': _, 'Zebasi': ___, 'Ai-mo': ___,
                           'Quetzali': ___, 'Yadakk': ___, 'Aquarion': ___, 'Elyrion': ___},
-                 'fish': {'Xin-xi': ___, 'Imperius': ___, 'Bardur': ___, 'Oumaji': ___, 'Kickoo': ____,
+                 'fish': {'Xin-xi': ___, 'Imperius': ___, 'Imperius2': ___, 'Bardur': ___, 'Oumaji': ___, 'Kickoo': ____,
                           'Hoodrick': ___, 'Luxidoor': ___, 'Vengir': _, 'Zebasi': ___, 'Ai-mo': ___,
                           'Quetzali': ___, 'Yadakk': ___, 'Aquarion': ___, 'Elyrion': ___},
-                 'whale': {'Xin-xi': ___, 'Imperius': ___, 'Bardur': ___, 'Oumaji': ___, 'Kickoo': ___,
+                 'whale': {'Xin-xi': ___, 'Imperius': ___, 'Imperius2': ___, 'Bardur': ___, 'Oumaji': ___, 'Kickoo': ___,
                            'Hoodrick': ___, 'Luxidoor': ___, 'Vengir': ___, 'Zebasi': ___, 'Ai-mo': ___,
                            'Quetzali': ___, 'Yadakk': ___, 'Aquarion': ___, 'Elyrion': ___}}
 
@@ -256,7 +256,7 @@ def post_generate(resource, underneath, quantity, capital):
 
 
 for capital in capital_cells:
-    if world_map[capital]['tribe'] == 'Imperius':
+    if world_map[capital]['tribe'] == 'Imperius' or world_map[capital]['tribe'] == 'Imperius2':
         post_generate('fruit', 'ground', 2, capital)
     elif world_map[capital]['tribe'] == 'Bardur':
         post_generate('game', 'forest', 2, capital)
@@ -327,6 +327,8 @@ for c in range(map_size ** 2):
             tribeId = 2
         elif world_map[c]['tribe'] == 'Oumaji':
             tribeId = 3
+        elif world_map[c]['tribe'] == 'Imperius2':
+            tribeId = 12
 
 
     # TRIBES CITY/VILLAGE

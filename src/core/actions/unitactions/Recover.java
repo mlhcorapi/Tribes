@@ -15,7 +15,8 @@ public class Recover extends UnitAction
 
     @Override
     public boolean isFeasible(final GameState gs) {
-        Unit unit = (Unit) gs.getActor(this.unitId);
+        Unit unit = gs.getActor(this.unitId, Unit.class);
+        if(unit == null) return false;
         float currentHP = unit.getCurrentHP();
         return unit.isFresh() && currentHP < unit.getMaxHP() && currentHP > 0;
     }

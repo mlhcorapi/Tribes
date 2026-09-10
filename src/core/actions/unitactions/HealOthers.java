@@ -22,10 +22,10 @@ public class HealOthers extends UnitAction
     @Override
     public boolean isFeasible(final GameState gs) {
         Board board = gs.getBoard();
-        Unit unit = (Unit) gs.getActor(this.unitId);
+        Unit unit = gs.getActor(this.unitId, Unit.class);
 
         //This needs to be a mind bender that can "attack"
-        if(unit.getType() != Types.UNIT.MIND_BENDER || !unit.canAttack())
+        if(unit == null || unit.getType() != Types.UNIT.MIND_BENDER || !unit.canAttack())
             return false;
 
         //Feasible if this unit can heal this turn and if there is at least one friendly unit adjacent.
@@ -53,7 +53,8 @@ public class HealOthers extends UnitAction
 
     public ArrayList<Unit> getTargets(GameState gs) {
         ArrayList<Unit> targets = new ArrayList<>();
-        Unit unit = (Unit) gs.getActor(this.unitId);
+        Unit unit = gs.getActor(this.unitId, Unit.class);
+        if(unit == null) return targets;
         for (Vector2d tile : unit.getPosition().neighborhood(unit.RANGE, 0, gs.getBoard().getSize())){
             Unit u = gs.getBoard().getUnitAt(tile.x, tile.y);
             if (canBeHealed(unit, u))
