@@ -23,11 +23,23 @@ public class IO
      * @param filename file to read
      * @return file content as String[], one line per element
      */
+    /** MAGAT: resolve a relative data file against -Dtribes.home when it is not in the working directory. */
+    private static String resolve(String filename) {
+        File f = new File(filename);
+        if (f.exists() || f.isAbsolute()) return filename;
+        String home = System.getProperty("tribes.home");
+        if (home != null && !home.isEmpty()) {
+            File g = new File(home, filename);
+            if (g.exists()) return g.getPath();
+        }
+        return filename;
+    }
+
     public String[] readFile(String filename)
     {
         ArrayList<String> lines = new ArrayList<String>();
         try{
-            BufferedReader in = new BufferedReader(new FileReader(filename));
+            BufferedReader in = new BufferedReader(new FileReader(resolve(filename)));
             String line = null;
             while ((line = in.readLine()) != null) {
                 lines.add(line);
@@ -77,7 +89,7 @@ public class IO
     public JSONObject readJSON(String filename) {
         String result = "";
         try {
-            BufferedReader br = new BufferedReader(new FileReader(filename));
+            BufferedReader br = new BufferedReader(new FileReader(resolve(filename)));
             StringBuilder sb = new StringBuilder();
             String line = br.readLine();
             while (line != null) {
