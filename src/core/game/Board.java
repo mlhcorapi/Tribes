@@ -553,6 +553,8 @@ public class Board implements Serializable {
      */
     public Unit getUnitAt(int x, int y){
 
+        // MAGAT: 0 is the board's "no unit" (enemyUnitAt reads it so too); actor ids start at 1.
+        if (units[x][y] == 0) return null;
         Actor act = gameActors.get(units[x][y]);
         if(act != null)
             return (Unit) act;

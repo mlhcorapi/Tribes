@@ -49,7 +49,13 @@ public class StepMove implements NeighbourHelper
         //Each one of the tree nodes added to "neighbours" must have a position (x,y) and also the cost of moving there from "from":
         //TreeNode tn = new TreeNode (vector2d pos, double stepCost)
         //We only add nodes to neighbours if costFrom+stepCost <= total move range of this.unit
-        for(Vector2d tile : from.neighborhood(1, 0, board.getSize())) {
+        // MAGAT: Vector2d.neighborhood(1, 0, size)'s order (x outer, y inner; the centre and off-board
+        // tiles skipped), without building the list.
+        int size = board.getSize();
+        for (int tx = from.x - 1; tx <= from.x + 1; tx++)
+        for (int ty = from.y - 1; ty <= from.y + 1; ty++) {
+            if ((tx == from.x && ty == from.y) || tx < 0 || ty < 0 || tx >= size || ty >= size) continue;
+            Vector2d tile = new Vector2d(tx, ty);
             Types.TERRAIN terrain = board.getTerrainAt(tile.x, tile.y);
             double stepCost = 0.0;
             boolean zoneOfControl = false;
@@ -62,12 +68,7 @@ public class StepMove implements NeighbourHelper
             }
 
             //Check if there is an enemy unit adjacent to the destination.
-            for (Vector2d tileAdj : tile.neighborhood(1, 0, board.getSize())) {
-                Unit u = board.getUnitAt(tileAdj.x, tileAdj.y);  // There might not be a unit there at all
-                if (u != null && u.getTribeId() != unit.getTribeId()) {
-                    zoneOfControl = true;
-                }
-            }
+            zoneOfControl = enemyAdjacent(board, tile.x, tile.y, size);
 
             //Cannot move into tiles that have not been discovered yet.
             if (!gs.getTribe(unit.getTribeId()).isVisible(tile.x, tile.y)) {
@@ -154,6 +155,26 @@ public class StepMove implements NeighbourHelper
 
         }
         return neighbours;
+    }
+
+    // MAGAT: zone of control per tile, computed once: this object serves one unit on one state, which does
+    // not change while that unit's moves are found. 0 not known yet, 1 no enemy adjacent, 2 an enemy adjacent.
+    private byte[][] zoc;
+
+    private boolean enemyAdjacent(Board board, int x, int y, int size) {
+        if (zoc == null) zoc = new byte[size][size];
+        byte z = zoc[x][y];
+        if (z == 0) {
+            z = 1;
+            for (int i = x - 1; i <= x + 1; i++)
+                for (int j = y - 1; j <= y + 1; j++) {
+                    if ((i == x && j == y) || i < 0 || j < 0 || i >= size || j >= size) continue;
+                    Unit u = board.getUnitAt(i, j);  // There might not be a unit there at all
+                    if (u != null && u.getTribeId() != unit.getTribeId()) z = 2;
+                }
+            zoc[x][y] = z;
+        }
+        return z == 2;
     }
 
     @Override

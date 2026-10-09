@@ -17,6 +17,9 @@ import java.util.LinkedList;
 
 public class BuildFactory implements ActionFactory {
 
+    // MAGAT: values() clones the array on every call.
+    private static final Types.BUILDING[] BUILDINGS = Types.BUILDING.values();
+
     @Override
     public LinkedList<Action> computeActionVariants(final Actor actor, final GameState gs) {
 
@@ -25,16 +28,21 @@ public class BuildFactory implements ActionFactory {
         Board board = gs.getBoard();
         LinkedList<Vector2d> tiles = board.getCityTiles(city.getActorId());
 
+        // MAGAT: one probe for the feasibility tests (isFeasible reads an action and changes nothing); an
+        // action is created only for a feasible building, as before.
+        Build probe = new Build(city.getActorId());
+
         for(Vector2d tile : tiles){
-            for(Types.BUILDING building: Types.BUILDING.values()){
-                //check if tile is empty
-                if(board.getBuildingAt(tile.x, tile.y) == null) {
+            //check if tile is empty (the same for every building)
+            if(board.getBuildingAt(tile.x, tile.y) != null) continue;
+            probe.setTargetPos(tile);
+            for(Types.BUILDING building: BUILDINGS){
+                probe.setBuildingType(building);
+                if (probe.isFeasible(gs)) {
                     Build action = new Build(city.getActorId());
                     action.setBuildingType(building);
                     action.setTargetPos(tile.copy());
-                    if (action.isFeasible(gs)) {
-                        actions.add(action);
-                    }
+                    actions.add(action);
                 }
             }
         }

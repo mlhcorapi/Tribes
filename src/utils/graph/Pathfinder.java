@@ -3,6 +3,7 @@ package utils.graph;
 import utils.Vector2d;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.PriorityQueue;
 
@@ -15,6 +16,8 @@ public class Pathfinder
     private NeighbourHelper provider;
 
     public HashSet<PathNode> nodes;
+    // MAGAT: the same nodes by id; PathNode's id is its position, and nodes holds one per position.
+    private HashMap<Integer, PathNode> byId;
 
     public Pathfinder(Vector2d rootPos, NeighbourHelper provider)
     {
@@ -53,6 +56,8 @@ public class Pathfinder
     private ArrayList<PathNode> _dijkstra()
     {
         nodes = new HashSet<>();
+        byId = new HashMap<>();
+        HashSet<Integer> destinationIds = new HashSet<>();
 
         root.setVisited(true);
         root.setTotalCost(0.0);
@@ -65,6 +70,7 @@ public class Pathfinder
         visited.add(root);
         openList.add(root);
         nodes.add(root);
+        byId.put(root.getId(), root);
 
         while (openList.size() != 0)
         {
@@ -72,7 +78,8 @@ public class Pathfinder
             //nodes.add(node);
 //            System.out.println("Remaining in list: " + openList.size());
 
-            if (!destinationsFromStart.contains(node) && (node != root))
+            // MAGAT: de-duplicated by id, as contains() did by position.
+            if ((node != root) && destinationIds.add(node.getId()))
             {
                 destinationsFromStart.add(node);
             }
@@ -83,17 +90,11 @@ public class Pathfinder
 
                 boolean inCache = false;
 
-                PathNode neighbour = null;
-                if (nodes != null) {
-                    for (PathNode n2 : nodes) {
-                        if (nb.equals(n2)) {
-                            neighbour = n2;
-                            inCache = true;
-                            break;
-                        }
-                    }
-                }
-                if (neighbour == null) {
+                // MAGAT: the node for this position, by id (one per position), not by scanning them all.
+                PathNode neighbour = byId.get(nb.getId());
+                if (neighbour != null) {
+                    inCache = true;
+                } else {
                     neighbour = nb;  // Node was not found in cache
                 }
 
@@ -102,7 +103,7 @@ public class Pathfinder
                     visited.add(neighbour);
                     neighbour.setTotalCost(nbCost + node.getTotalCost());
                     openList.add(neighbour);
-                    nodes.add(neighbour);
+                    if (nodes.add(neighbour)) byId.put(neighbour.getId(), neighbour);
                 } else if (nbCost + node.getTotalCost() < neighbour.getTotalCost()) {
                     neighbour.setTotalCost(nbCost + node.getTotalCost());
                 }
@@ -118,6 +119,7 @@ public class Pathfinder
         // efficient to avoid re-calculating neighbours
 
         nodes = new HashSet<>();
+        byId = new HashMap<>();
         PathNode node = null;
         PriorityQueue<PathNode> openList = new PriorityQueue<>();
         PriorityQueue<PathNode> closedList = new PriorityQueue<>();
@@ -127,6 +129,7 @@ public class Pathfinder
         root.setEstimatedCost(dist);
         openList.add(root);
         nodes.add(root);
+        byId.put(root.getId(), root);
 
         while(openList.size() != 0)
         {
@@ -146,17 +149,11 @@ public class Pathfinder
                 double nbCost = nb.getTotalCost();
                 boolean inCache = false;
 
-                PathNode neighbour = null;
-                if (nodes != null) {
-                    for (PathNode n2 : nodes) {
-                        if (nb.equals(n2)) {
-                            neighbour = n2;
-                            inCache = true;
-                            break;
-                        }
-                    }
-                }
-                if (neighbour == null) {
+                // MAGAT: the node for this position, by id (one per position), not by scanning them all.
+                PathNode neighbour = byId.get(nb.getId());
+                if (neighbour != null) {
+                    inCache = true;
+                } else {
                     neighbour = nb;  // Node was not found in cache
                 }
 
@@ -167,7 +164,7 @@ public class Pathfinder
                     neighbour.setParent(node);
 
                     openList.add(neighbour);
-                    nodes.add(neighbour);
+                    if (nodes.add(neighbour)) byId.put(neighbour.getId(), neighbour);
 
                 } else if (nbCost + node.getTotalCost() < neighbour.getTotalCost()) {
                     neighbour.setTotalCost(nbCost + node.getTotalCost());
